@@ -161,8 +161,9 @@ def handle_document(message):
         with open(file_name, 'wb') as new_file:
             new_file.write(downloaded_file)
 
+        bot.reply_to(message, "Файл находится в обработке")
+
         if file_name.endswith('.zip'):
-            bot.reply_to(message, "Файл находится в обработке")
             # Дерево проекта
             py_files_tree = build_python_files_tree(file_name)
 
@@ -215,11 +216,18 @@ def handle_document(message):
             shutil.rmtree(extracted_dir)
         else:
             if file_name.endswith('.py'):
+
+                # Генерация заголовка
+                header = generate_project_analysis_header(file_name)
+
+                # Добавляем заголовок к содержимому отчёта
+                all_content = f"{header}\n\n"
+
                 with open(file_name, 'r', encoding='utf-8') as f:
                     data = f.read()
                 rag_response = rag_for_code(data)
                 content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
-                all_content = f"Файл: {file_name}\n{content}\n\n"
+                all_content += f"Файл: {file_name}\n{content}\n\n"
                 report_path = create_pdf_report(f"report_{file_name}.pdf", all_content)
                 r_type = "файл"
             else:
