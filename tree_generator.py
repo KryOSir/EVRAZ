@@ -1,7 +1,5 @@
 import zipfile
 from pathlib import Path
-import zipfile
-from pathlib import Path
 
 def compress_zip_structure(zip_path):
     structure = []  # Массив для хранения структуры
