@@ -85,8 +85,6 @@ def create_report(report_path, contents):
     return report_path
 
 
-# Отладочный вывод для проверки импорта config
-print(f"Config function: {config}")
 
 # Загрузка конфигурации из .env файла
 TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
@@ -154,17 +152,8 @@ def handle_document(message):
             # Удаление распакованных файлов
             shutil.rmtree(extracted_dir)
         else:
-            if file_name.endswith('.py'):
-                with open(file_name, 'r', encoding='utf-8') as f:
-                    data = f.read()
-                rag_response = rag_for_code(data)
-                content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
-                all_content = f"Файл: {file_name}\n{content}\n\n"
-                report_path = create_report(f"report_{file_name}.txt", all_content)
-                r_type = "файл"
-            else:
-                report_path = create_report(f"report_{file_name}.txt", "Обработка файлов не .py не реализована.")
-                r_type = "файл"
+            report_path = create_report(f"report_{file_name}.txt", "Обработка файла не реализована.")
+            r_type = "файл"
 
         # Отправка отчета пользователю
         if os.path.exists(report_path):
