@@ -5,7 +5,7 @@ from zipfile import ZipFile
 from decouple import config
 from telebot import TeleBot
 
-from RAG import *
+from rag import *
 import shutil
 
 #from example_of_request import rag, find_relevant_reviews
@@ -119,6 +119,7 @@ def handle_document(message):
             new_file.write(downloaded_file)
 
         if file_name.endswith('.zip'):
+            bot.reply_to(message, "Файл находится в обработке")
             # Дерево проекта
             py_files_tree = build_python_files_tree(file_name)
 
@@ -129,6 +130,11 @@ def handle_document(message):
                 archive.extractall(extracted_dir)
 
             all_contents = ""
+
+            rag_response = rag_for_tree(py_files_tree.splitlines())
+            content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
+            all_contents += f"Структура проекта:\n{py_files_tree} \n{content}\n\n"
+
             for root, _, files in os.walk(extracted_dir):
                 for file in files:
                     if file.endswith('.py'):
@@ -136,7 +142,7 @@ def handle_document(message):
                         with open(file_path, 'r', encoding='utf-8') as f:
                             data = f.read()
                         # Вызов RAG
-                        rag_response = ragForCode(data)
+                        rag_response = rag_for_code(data)
                         # Извлечение контента с мнением
                         content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
                         all_contents += f"Файл: {file_path}\n{content}\n\n"
