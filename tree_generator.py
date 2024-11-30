@@ -1,48 +1,66 @@
 import zipfile
 from pathlib import Path
+import zipfile
+from pathlib import Path
 
-# Функция для сохранения структуры ZIP-архива в виде списка с id, name и parent
-def save_zip_structure_to_array(zip_path):
+def compress_zip_structure(zip_path):
     structure = []  # Массив для хранения структуры
-    id_counter = 1
-    path_to_id = {"/": 0}  # Словарь для хранения соответствия пути и ID, корень указывает на id 0
+    id_counter = 1   # Начинаем с 1
+    path_to_id = {'/': 0}  # Корень
 
     # Открываем ZIP-архив
     with zipfile.ZipFile(zip_path, 'r') as zip_file:
         for info in zip_file.infolist():
-            # Получаем полный путь и разбиваем его на части
-            is_dir = info.is_dir()
+            # Получаем полный путь к файлу/директории
+            full_path = info.filename
 
-            # Определяем родительский путь
-            parent_path = str(Path(info.filename).parent).strip("/") or "/"  # Корень, если нет родителя
-            parent_path = parent_path.replace('\\', '/')
-            parent_id = path_to_id.get(parent_path)
+            # Разбиваем путь на части
+            path_parts = list(Path(full_path).parts)
 
-            # Генерируем уникальный ID для текущего элемента
-            current_id = id_counter
-            id_counter += 1
+            # Устанавливаем родительский путь
+            parent_path = '/'.join(path_parts[:-1])+'/' if len(path_parts) > 1 else None
 
-            # Создаем запись для текущего элемента
-            entry = {
-                'id': current_id,
-                'name': Path(info.filename).name,
-                'parent': parent_id
-            }
+            # Добавляем директорию в словарь, если она еще не добавлена
+            if full_path not in path_to_id and full_path[-1] == '/':
+                current_id = id_counter
+                path_to_id[full_path] = current_id
+                id_counter += 1
 
-            # Добавляем запись в структуру
-            structure.append(entry)
+                # Если есть родительский путь, добавляем его в словарь
+                if parent_path and parent_path not in path_to_id:
+                    path_to_id[parent_path] = id_counter
+                    id_counter += 1
 
-            # Сохраняем соответствие пути и ID
-            # Если это директория, сохраняем ее ID
-            if is_dir:
-                path_to_id[str(info.filename).strip("/")] = current_id
+            # Добавляем запись для текущего элемента
+            if  full_path[-3:] == '.py' or full_path[-1] == '/':
+                if parent_path is not None:
+                    parent_id = path_to_id.get(parent_path, 0)
 
-    return structure
+                    if full_path[-1] == '/':  # Если это папка
+                        current_id = path_to_id[full_path]
+                        structure.append((parent_id, Path(info.filename).name, current_id))
+                    else:  # Если это файл
+                        structure.append(
+                            (parent_id, Path(info.filename).name, 0))  # Здесь 0 для файлов, так как у них нет current_id
+                else:
+                    if full_path[-1] == '/':
+                        current_id = path_to_id[full_path]
+                        structure.append((0, Path(info.filename).name, current_id))
+                    else:
+                        structure.append((0, Path(info.filename).name, 0))  # Здесь 0 для файлов
+
+    # Формируем "сжатую" структуру
+    compressed_structure = []
+    for parent_id, name, current_id in structure:
+        compressed_structure.append(f"{parent_id}->{name}->{current_id}") if current_id else compressed_structure.append(f"{parent_id}->{name}")
+
+    # Объединяем все в одну строку
+    compressed_output = ";".join(compressed_structure)
+    return compressed_output
 
 # Пример использования
-zip_file_path = "mnt/data/luncher-api-master.zip"  # Путь к ZIP-архиву
-zip_structure = save_zip_structure_to_array(zip_file_path)
+zip_file_path = "./mnt/data/2020.2-Anunbis-develop.zip"  # Путь к ZIP-архиву
+compressed_structure = compress_zip_structure(zip_file_path)
 
-# Выводим структуру
-import pprint
-pprint.pprint(zip_structure)
+# Выводим результат
+print(compressed_structure)
