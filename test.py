@@ -20,7 +20,7 @@ def clean_text(text):
     return text
 
 # Пример использования
-pdf_path = './mnt/data/Руководство Python.pdf'
+pdf_path = './mnt/data/review.pdf'
 guide_text = extract_text_from_pdf(pdf_path)
 
 # Очищаем текст
