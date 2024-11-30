@@ -13,6 +13,20 @@ TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
 # Создание бота
 bot = TeleBot(TOKEN)
 
+
+from datetime import datetime
+
+def generate_project_analysis_header(file_name):
+    """
+    Генерирует заголовок анализа проекта с текущей датой и временем.
+    :param file_name: Имя файла (например, `example.zip`).
+    :return: Строка формата `Анализ проекта example от 01.01.2024 00:00:00 UTC+3`.
+    """
+    project_name = file_name.rsplit('.', 1)[0]  # Удаляем расширение
+    current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S UTC+3")
+    return f"Анализ проекта {project_name} от {current_time}"
+
+
 pdfmetrics.registerFont(TTFont("Arial", "ArialRegular.ttf"))  # Укажите путь к файлу шрифта
 
 def split_text_to_fit(text, font_name, font_size, max_width):
@@ -37,26 +51,39 @@ def split_text_to_fit(text, font_name, font_size, max_width):
 
     return lines
 
+
 def create_pdf_report(report_path, contents):
-    """Создаёт PDF-отчёт с переносом текста и учётом абзацев."""
+    """Создаёт PDF-отчёт с переносом текста, учётом абзацев и выделением жирного текста."""
     pdf = canvas.Canvas(report_path)
-    pdf.setFont("Arial", 12)  # Используем шрифт с поддержкой кириллицы
+    pdfmetrics.registerFont(TTFont("Arial-Bold", "Arial-Bold.ttf"))  # Укажите путь к файлу жирного шрифта
+    pdfmetrics.registerFont(TTFont("Arial", "ArialRegular.ttf"))  # Обычный шрифт
+    pdf.setFont("Arial", 12)
+
     x, y = 50, 800  # Начальная позиция
     max_width = 500  # Максимальная ширина текста
     line_spacing = 15  # Межстрочный интервал
     paragraph_spacing = 10  # Дополнительный отступ между абзацами
 
-    font_name = "Arial"
+    font_name_regular = "Arial"
+    font_name_bold = "Arial-Bold"
     font_size = 12
 
     for line in contents.splitlines():
+        # Проверяем, начинается ли строка с "Файл:"
+        if line.startswith("Файл: "):
+            # Устанавливаем жирный шрифт
+            pdf.setFont(font_name_bold, font_size)
+        else:
+            # Используем обычный шрифт
+            pdf.setFont(font_name_regular, font_size)
+
         # Проверяем, является ли строка пустой (признак нового абзаца)
         if not line.strip():
             y -= paragraph_spacing  # Увеличиваем отступ для нового абзаца
             continue
 
         # Разбиваем строку, если она превышает ширину страницы
-        wrapped_lines = split_text_to_fit(line, font_name, font_size, max_width)
+        wrapped_lines = split_text_to_fit(line, font_name_regular, font_size, max_width)
         for wrapped_line in wrapped_lines:
             if y < 50:  # Перенос на следующую страницу
                 pdf.showPage()
@@ -145,7 +172,11 @@ def handle_document(message):
             with ZipFile(file_name, 'r') as archive:
                 archive.extractall(extracted_dir)
 
-            all_contents = ""
+            # Генерация заголовка
+            header = generate_project_analysis_header(file_name)
+
+            # Добавляем заголовок к содержимому отчёта
+            all_contents = f"{header}\n\n"
 
             rag_response = rag_for_tree(py_files_tree.splitlines())
             content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
@@ -157,6 +188,7 @@ def handle_document(message):
             percent_count_two = count_of_all_files // 3 * 2
             processed_files = 0
 
+            # Обновление содержания файла для выделения названий жирным
             for root, _, files in os.walk(extracted_dir):
                 for file in files:
                     if file.endswith('.py'):
@@ -167,6 +199,7 @@ def handle_document(message):
                         rag_response = rag_for_code(data)
                         # Извлечение контента с мнением
                         content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
+                        # Добавляем заголовок файла с жирным шрифтом
                         all_contents += f"Файл: {file_path}\n{content}\n\n"
                         processed_files += 1
                         if processed_files == percent_count_one:
