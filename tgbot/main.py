@@ -1,70 +1,78 @@
+import io
 import os
 from zipfile import ZipFile
-from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.pagesizes import letter
-from datetime import datetime
+from decouple import config
 from telebot import TeleBot
+from rag import *
 import shutil
+from reportlab.pdfgen import canvas
 
-# Регистрация шрифта для поддержки кириллицы
-pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+# Загрузка конфигурации из .env файла
+TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
 
-# Загрузка токена для бота
-TOKEN = 'YOUR_BOT_TOKEN'  # Укажите ваш токен
+# Создание бота
 bot = TeleBot(TOKEN)
+
+def create_pdf_report(report_path, contents):
+    """Создаёт PDF-отчёт."""
+    pdf = canvas.Canvas(report_path)
+    pdf.setFont("Helvetica", 12)
+    x, y = 50, 800  # Начальная позиция
+    line_spacing = 15  # Межстрочный интервал
+
+    for line in contents.splitlines():
+        if y < 50:  # Перенос на следующую страницу
+            pdf.showPage()
+            pdf.setFont("Helvetica", 12)
+            y = 800
+        pdf.drawString(x, y, line)
+        y -= line_spacing
+
+    pdf.save()
+    return report_path
 
 
 def build_python_files_tree(zip_path):
-    """Создает дерево проекта только для `.py` файлов из ZIP-архива."""
+    """
+    Создает дерево проекта только для `.py` файлов из ZIP-архива.
+    :param zip_path: Путь к ZIP-архиву.
+    :return: Строка с деревом проекта, включающим только `.py` файлы.
+    """
     try:
         tree_py = ""
         with ZipFile(zip_path, 'r') as archive:
+            # Получение списка всех файлов в архиве
             all_files = archive.namelist()
+
+            # Фильтрация только `.py` файлов
             py_files = [file for file in all_files if file.endswith('.py')]
+
+            # Сортировка для корректного отображения вложенных структур
             sorted_py_files = sorted(py_files, key=lambda x: (x.count('/'), x))
+
+            # Формирование дерева с полными путями для `.py` файлов
             for file in sorted_py_files:
                 tree_py += f"{file}\n"
+
+        # Если нет `.py` файлов, добавляем сообщение
         if not py_files:
             tree_py += "Нет `.py` файлов в архиве.\n"
+
         return tree_py
+
     except Exception as e:
         return f"Ошибка при построении дерева: {str(e)}"
 
 
-def create_pdf_report(report_path, contents, project_name):
-    """
-    Создаёт PDF-отчёт.
-    :param report_path: Путь для сохранения PDF-файла.
-    :param contents: Содержимое отчета.
-    :param project_name: Название проекта.
-    :return: Путь к созданному PDF-файлу.
-    """
+def extract_zip(zip_path, extract_to="temp_dir"):
+    """Извлекает содержимое ZIP-архива в указанную папку."""
     try:
-        pdf_canvas = canvas.Canvas(report_path, pagesize=letter)
-        pdf_canvas.setFont("DejaVuSans", 10)
-
-        # Заголовок
-        current_time = datetime.now().strftime('%d.%m.%Y %H:%M:%S UTC+3')
-        pdf_canvas.drawString(30, 750, f"Анализ проекта {project_name} от {current_time}")
-
-        # Основное содержимое
-        y_position = 730
-        line_height = 12
-
-        for line in contents.splitlines():
-            if y_position < 40:  # Перенос на следующую страницу
-                pdf_canvas.showPage()
-                pdf_canvas.setFont("DejaVuSans", 10)
-                y_position = 750
-            pdf_canvas.drawString(30, y_position, line)
-            y_position -= line_height
-
-        pdf_canvas.save()
-        return report_path
+        os.makedirs(extract_to, exist_ok=True)
+        with ZipFile(zip_path, 'r') as archive:
+            archive.extractall(extract_to)
+        return extract_to
     except Exception as e:
-        return f"Ошибка при создании PDF: {str(e)}"
+        return None
 
 
 @bot.message_handler(commands=['start'])
@@ -75,7 +83,6 @@ def start_message(message):
     )
     bot.reply_to(message, welcome_text)
 
-
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
     try:
@@ -83,56 +90,87 @@ def handle_document(message):
         downloaded_file = bot.download_file(file_info.file_path)
         file_name = message.document.file_name
 
+        # Сохранение временного файла
         with open(file_name, 'wb') as new_file:
             new_file.write(downloaded_file)
 
         if file_name.endswith('.zip'):
             bot.reply_to(message, "Файл находится в обработке")
-
-            # Получение структуры проекта
+            # Дерево проекта
             py_files_tree = build_python_files_tree(file_name)
 
-            # Распаковка архива
+            # Работа с каждым `.py` файлом
             extracted_dir = f"extracted_{file_name}"
             os.makedirs(extracted_dir, exist_ok=True)
             with ZipFile(file_name, 'r') as archive:
                 archive.extractall(extracted_dir)
 
-            # Содержимое отчета
-            all_contents = f"Структура проекта:\n{py_files_tree}\n\n"
-            all_contents += "Детали анализа:\n"
+            all_contents = ""
+
+            rag_response = rag_for_tree(py_files_tree.splitlines())
+            content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
+            all_contents += f"Структура проекта:\n{py_files_tree} \n{content}\n\n"
+
+            # Шкала прогресса
+            count_of_all_files = sum(1 for _ in py_files_tree.splitlines())
+            percent_count_one = count_of_all_files // 3
+            percent_count_two = count_of_all_files // 3 * 2
+            processed_files = 0
+
             for root, _, files in os.walk(extracted_dir):
                 for file in files:
                     if file.endswith('.py'):
                         file_path = os.path.join(root, file)
                         with open(file_path, 'r', encoding='utf-8') as f:
                             data = f.read()
-                        all_contents += f"Файл: {file_path}\nСодержимое:\n{data}\n\n"
+                        # Вызов RAG
+                        rag_response = rag_for_code(data)
+                        # Извлечение контента с мнением
+                        content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
+                        all_contents += f"Файл: {file_path}\n{content}\n\n"
+                        processed_files += 1
+                        if processed_files == percent_count_one:
+                            bot.reply_to(message, "Выполнено 30%")
+                        elif processed_files == percent_count_two:
+                            bot.reply_to(message, "Выполнено 60%")
 
+            # Создание файла отчета в формате PDF
+            report_path = create_pdf_report(f"report_{file_name}.pdf", all_contents)
+            r_type = "архив"
+
+            # Удаление распакованных файлов
             shutil.rmtree(extracted_dir)
-
-            # Создание PDF
-            project_name = file_name.replace('.zip', '')
-            pdf_report_path = f"report_{project_name}.pdf"
-            create_pdf_report(pdf_report_path, all_contents, project_name)
-
-            if os.path.exists(pdf_report_path):
-                with open(pdf_report_path, "rb") as report_file:
-                    bot.reply_to(message, "Ваш архив был обработан, результаты прикреплены к сообщению.")
-                    bot.send_document(chat_id=message.chat.id, document=report_file)
-                os.remove(pdf_report_path)
         else:
-            bot.reply_to(message, "Пожалуйста, отправьте ZIP-архив.")
+            if file_name.endswith('.py'):
+                with open(file_name, 'r', encoding='utf-8') as f:
+                    data = f.read()
+                rag_response = rag_for_code(data)
+                content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
+                all_content = f"Файл: {file_name}\n{content}\n\n"
+                report_path = create_pdf_report(f"report_{file_name}.pdf", all_content)
+                r_type = "файл"
+            else:
+                report_path = create_pdf_report(f"report_{file_name}.pdf", "Обработка файлов не .py не реализована.")
+                r_type = "файл"
 
+        # Отправка отчета пользователю
+        if os.path.exists(report_path):
+            with open(report_path, "rb") as report_file:
+                bot.reply_to(message, f"Ваш {r_type} был обработан, результаты прикреплены к сообщению.")
+                bot.send_document(chat_id=message.chat.id, document=report_file)
+            os.remove(report_path)
+        else:
+            bot.reply_to(message, "Произошла ошибка при создании отчета.")
+
+        # Удаление временного файла
         os.remove(file_name)
+
     except Exception as e:
         bot.reply_to(message, f"Произошла ошибка: {str(e)}")
 
-
 @bot.message_handler(func=lambda message: True)
 def unknown_command(message):
-    bot.reply_to(message, "Я не знаю, что делать с этим. Пожалуйста, отправьте мне ZIP-архив для обработки.")
-
+    bot.reply_to(message, "Я не знаю, что делать с этим. Пожалуйста, отправьте мне файл или архив для обработки.")
 
 if __name__ == '__main__':
     print("Bot started")
