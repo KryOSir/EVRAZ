@@ -38,7 +38,7 @@ def compress_zip_structure(zip_path):
                         current_id = path_to_id[full_path]
                         structure.append((parent_id, Path(info.filename).name, current_id))
                     else:  # Если это файл
-                        structure.append(
+                        structure.append(++-
                             (parent_id, Path(info.filename).name, 0))  # Здесь 0 для файлов, так как у них нет current_id
                 else:
                     if full_path[-1] == '/':
