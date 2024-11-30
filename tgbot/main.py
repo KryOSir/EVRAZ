@@ -9,7 +9,7 @@ from telebot import TeleBot
 print(f"Config function: {config}")
 
 # Загрузка конфигурации из .env файла
-TOKEN = '7763793823:AAH-swBh10U8AY6Naqj8rNsSEjXQsQmudsg'
+TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
 
 # Создание бота
 bot = TeleBot(TOKEN)
@@ -39,12 +39,10 @@ def handle_document(message):
             new_file.write(downloaded_file)
 
         if file_name.endswith('.zip'):
-            report_path = "report_archive.txt"
-            with open(report_path, "w", encoding='utf-8') as report_file:
-                report_file.write("Обработка архива не реализована.")
+            report_path = create_report(f"report_archive_{file_name}.txt", "Обработка архива не реализована.")
             r_type = "архив"
         else:
-            report_path = create_report("report.txt", "Обработка файла не реализована.")
+            report_path = create_report(f"report_{file_name}.txt", "Обработка файла не реализована.")
             r_type = "файл"
 
         # Отправка отчета пользователю
