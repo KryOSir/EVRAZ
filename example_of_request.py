@@ -239,7 +239,6 @@ def findSimilarReviewsCode(fileData):
 def ragForCode(fileData: string):
     # Извлекаем релевантные отзывы из базы
     relevantReviews = findSimilarReviewsCode(fileData)
-    print(relevantReviews)
 
     # Подготавливаем данные для запроса
     url = "http://84.201.152.196:8020/v1/completions"
@@ -261,10 +260,3 @@ def ragForCode(fileData: string):
     # Отправляем запрос в модель
     response = requests.post(url, headers=headers, json=payload)
     return response.json()
-
-
-with open('./mnt/data/admins_controller.py', 'r', encoding='utf-8') as file:
-    data = file.read()  # Читаем все содержимое файла
-
-ragRequest = ragForCode(data)
-print(json.dumps(ragRequest, indent=2, ensure_ascii=False))
