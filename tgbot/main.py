@@ -1,22 +1,23 @@
 import os
 from zipfile import ZipFile
-from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.pagesizes import letter
 from datetime import datetime
 from telebot import TeleBot
 import shutil
 
+# Регистрация шрифта для поддержки кириллицы
+pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+
 # Загрузка токена для бота
-TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'  # Укажите ваш токен
+TOKEN = 'YOUR_BOT_TOKEN'  # Укажите ваш токен
 bot = TeleBot(TOKEN)
 
 
 def build_python_files_tree(zip_path):
-    """
-    Создает дерево проекта только для `.py` файлов из ZIP-архива.
-    :param zip_path: Путь к ZIP-архиву.
-    :return: Строка с деревом проекта, включающим только `.py` файлы.
-    """
+    """Создает дерево проекта только для `.py` файлов из ZIP-архива."""
     try:
         tree_py = ""
         with ZipFile(zip_path, 'r') as archive:
@@ -32,25 +33,30 @@ def build_python_files_tree(zip_path):
         return f"Ошибка при построении дерева: {str(e)}"
 
 
-def create_pdf_report(report_path, contents):
+def create_pdf_report(report_path, contents, project_name):
     """
     Создаёт PDF-отчёт.
     :param report_path: Путь для сохранения PDF-файла.
     :param contents: Содержимое отчета.
+    :param project_name: Название проекта.
     :return: Путь к созданному PDF-файлу.
     """
     try:
         pdf_canvas = canvas.Canvas(report_path, pagesize=letter)
-        pdf_canvas.setFont("Helvetica", 10)
-        pdf_canvas.drawString(30, 750, f"Отчёт сгенерирован: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        pdf_canvas.setFont("DejaVuSans", 10)
 
-        y_position = 720
+        # Заголовок
+        current_time = datetime.now().strftime('%d.%m.%Y %H:%M:%S UTC+3')
+        pdf_canvas.drawString(30, 750, f"Анализ проекта {project_name} от {current_time}")
+
+        # Основное содержимое
+        y_position = 730
         line_height = 12
 
         for line in contents.splitlines():
-            if y_position < 40:
+            if y_position < 40:  # Перенос на следующую страницу
                 pdf_canvas.showPage()
-                pdf_canvas.setFont("Helvetica", 10)
+                pdf_canvas.setFont("DejaVuSans", 10)
                 y_position = 750
             pdf_canvas.drawString(30, y_position, line)
             y_position -= line_height
@@ -82,14 +88,19 @@ def handle_document(message):
 
         if file_name.endswith('.zip'):
             bot.reply_to(message, "Файл находится в обработке")
+
+            # Получение структуры проекта
             py_files_tree = build_python_files_tree(file_name)
 
+            # Распаковка архива
             extracted_dir = f"extracted_{file_name}"
             os.makedirs(extracted_dir, exist_ok=True)
             with ZipFile(file_name, 'r') as archive:
                 archive.extractall(extracted_dir)
 
+            # Содержимое отчета
             all_contents = f"Структура проекта:\n{py_files_tree}\n\n"
+            all_contents += "Детали анализа:\n"
             for root, _, files in os.walk(extracted_dir):
                 for file in files:
                     if file.endswith('.py'):
@@ -100,8 +111,10 @@ def handle_document(message):
 
             shutil.rmtree(extracted_dir)
 
-            pdf_report_path = f"report_{file_name}.pdf"
-            create_pdf_report(pdf_report_path, all_contents)
+            # Создание PDF
+            project_name = file_name.replace('.zip', '')
+            pdf_report_path = f"report_{project_name}.pdf"
+            create_pdf_report(pdf_report_path, all_contents, project_name)
 
             if os.path.exists(pdf_report_path):
                 with open(pdf_report_path, "rb") as report_file:
