@@ -7,7 +7,7 @@ from telebot import TeleBot
 import shutil
 
 # Загрузка токена для бота
-TOKEN = 'YOUR_BOT_TOKEN'  # Укажите ваш токен
+TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'  # Укажите ваш токен
 bot = TeleBot(TOKEN)
 
 
@@ -48,7 +48,7 @@ def create_pdf_report(report_path, contents):
         line_height = 12
 
         for line in contents.splitlines():
-            if y_position < 40:  # Перенос на следующую страницу
+            if y_position < 40:
                 pdf_canvas.showPage()
                 pdf_canvas.setFont("Helvetica", 10)
                 y_position = 750
