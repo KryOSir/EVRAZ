@@ -1,53 +1,4 @@
-import string
-import requests
-import os
-import json
-from difflib import SequenceMatcher
-
-REVIEWS_TREE = [
-    {"code": r"2020.2-Anunbis-develop\2020.2-Anunbis-develop\app\__init__.py",
-     "review": "TODO: необходимо привести структуру проекта к стандартам"},
-    {"code": r"2020.2-Anunbis-develop\2020.2-Anunbis-develop\app\services\auth_services.py",
-     "review": "TODO: HTTP код ответа нужно расместить в контроллерах"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\routes.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/api/app.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\users\api.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/api/controllers/user.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\users\mixins.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/api/controllers/base.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\users\models.py",
-     "review": "TODO Перенести этот модуль в components/app/application/entities.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\users\tests.py",
-     "review": "TODO Перенести этот модуль в components/app/tests/integration/adapters/api/controllers/test_user.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\utils\auth.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/api/auth.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\utils\errors.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/api/errors.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\utils\misc.py",
-     "review": "TODO Перенести этот модуль в components/app/application/utils.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\app\utils\testing.py",
-     "review": "TODO Перенести этот модуль в components/app/tests/integration/adapters/api/controllers/conftest.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\migrations\env.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/db/alembic/app.py"},
-    {"code": r"Flask-PostgreSQL-API-Seed-master\Flask-PostgreSQL-API-Seed-master\migrations\versions\351c26992f23_.py",
-     "review": "TODO Перенести этот модуль в components/app/adapters/db/migrations/app.py"},
-    {"code": r"FlaskApiEcommerce-master\FlaskApiEcommerce-master\FlaskApiEcommerce-master\ecommerce_api\factory.py",
-     "review": "TODO: вынести в app.py"},
-    {"code": r"RESTfulAPI-master 2\RESTfulAPI-master\RESTfulApi\app.py",
-     "review": "TODO: перенести в слой adapter"},
-    {"code": r"RESTfulAPI-master 2\RESTfulAPI-master\run.py",
-     "review": "TODO: перенести в композит"},
-    {"code": r"backend-master\backend-master\freenit\api\__init__.py",
-     "review": "TODO: Вынести в слой adapters/api"},
-    {"code": r"gramps-web-api-master\gramps-web-api-master\gramps_webapi\api\file.py",
-     "review": "TODO: перенести в слой адаптеров"},
-    {"code": r"luncher-api-master\luncher-api-master\conftest.py",
-     "review": "TODO: по стандарту удаляем"},
-    {"code": r"final-year-project-backend-api-master\final-year-project-backend-api-master\api\__init__.py",
-     "review": "TODO: вынести в модуль app"}
-]
-
-REVIEWS_CODE = [
+reviews_db = [
     {"code": "user, status_code = auth_services.auth_user(user)",
      "review": "TODO: auth_services следует передавать через DI."},
     {"code": "message['contact_us'] = current_app.config['ANUNBIS_FRONTEND_URI']",
@@ -73,12 +24,19 @@ REVIEWS_CODE = [
     {"code": "    def get_summary(...",
      "review": "TODO: сериализацию вынесите в контроллеры."},
     {"code": "@blueprint.route('/users/addresses', methods=['GET'])\n@jwt_required\n...",
-     "review": "TODO: оберните функционал в класс и вынесите в контроллеры."},
+     "review": "TODO: оберните функционал в класс и вынесите в контроллеры."}
     {
-        "code": "addresses = Address.query.filter_by(user_id=user_id).order_by(desc(Address.created_at)) \\ .paginate(page=page, per_page=page_size)",
+        "code": "addresses = Address.query.filter_by(user_id=user_id).order_by(desc(Address.created_at)) \\ "
+                ".paginate(page=page, per_page=page_size)",
         "review": "TODO: работу с БД вынести в адаптеры",
     },
-    {"code": "first_name = request.json.get('first_name')\nlast_name = request.json.get('last_name')\nzip_code = request.json.get('zip_code')\nphone_number = request.json.get('phone_number')\ncity = request.json.get('city')\ncountry = request.json.get('country')\nstreet_address = request.json.get('address')",
+    {"code": "first_name = request.json.get('first_name')\n"
+                "last_name = request.json.get('last_name')\n"
+                "zip_code = request.json.get('zip_code')\n"
+                "phone_number = request.json.get('phone_number')\n"
+                "city = request.json.get('city')\n"
+                "country = request.json.get('country')\n"
+                "street_address = request.json.get('address')",
         "review": "TODO: для всех эндпоинтов внедрить модели валидации Pydantic",
     },
     {
@@ -86,23 +44,41 @@ REVIEWS_CODE = [
         "review": "TODO: работу с БД вынести в адаптеры",
     },
     {
-        "code": "app.register_blueprint(blueprint, url_prefix='/api')\n@app.shell_context_processor\ndef make_shell_context():\n    return dict(app=app, db=db, User=User, address=Address, order=Order, product=Product,\n                tag=Tag, category=Category, comment=Comment, file_upload=FileUpload, tag_image=TagImage,\n                category_image=CategoryImage, product_image=ProductImage)",
+        "code": "app.register_blueprint(blueprint, url_prefix='/api')\n"
+                "@app.shell_context_processor\n"
+                "def make_shell_context():\n"
+                "    return dict(app=app, db=db, User=User, address=Address, order=Order, product=Product,\n"
+                "                tag=Tag, category=Category, comment=Comment, file_upload=FileUpload, tag_image=TagImage,\n"
+                "                category_image=CategoryImage, product_image=ProductImage)",
         "review": "TODO: создать экземпляры классов и внедрить как зависимости",
     },
     {
-        "code": "products_categories = \\\n    db.Table('products_categories',\n             db.Column('category_id', db.Integer, db.ForeignKey('categories.id')),\n             db.Column('product_id', db.Integer, db.ForeignKey('products.id')))",
+        "code": "products_categories = \\\n"
+                "    db.Table('products_categories',\n"
+                "             db.Column('category_id', db.Integer, db.ForeignKey('categories.id')),\n"
+                "             db.Column('product_id', db.Integer, db.ForeignKey('products.id')))",
         "review": "TODO: все таблицы вынести в tables.py",
     },
     {
-        "code": "basedir = os.path.abspath(os.path.dirname(__file__))\napp = Flask(__name__, root_path=os.getcwd(), static_url_path='/static')\n\napp.config.from_object(Config)\ndb = SQLAlchemy(app)\nmigrate = Migrate(app, db)\ncache = Cache()\n\ncors = CORS(app)\nbcrypt = Bcrypt()\njwt = JWTManager(app)",
+        "code": "basedir = os.path.abspath(os.path.dirname(__file__))\n"
+                "app = Flask(__name__, root_path=os.getcwd(), static_url_path='/static')\n\n"
+                "app.config.from_object(Config)\n"
+                "db = SQLAlchemy(app)\nmigrate = Migrate(app, db)\ncache = Cache()\n\n"
+                "cors = CORS(app)\nbcrypt = Bcrypt()\njwt = JWTManager(app)",
         "review": "TODO: реализовать фабрику Flask, принимающую сервисы и настройки",
     },
     {
-        "code": "@app.route('/routes')\ndef site_map():\n    links = []\n    for rule in app.url_map._rules:\n        links.append({'url': rule.rule, 'view': rule.endpoint})\n    return jsonify(links), 200",
+        "code": "@app.route('/routes')\ndef site_map():\n"
+                "    links = []\n"
+                "    for rule in app.url_map._rules:\n"
+                "        links.append({'url': rule.rule, 'view': rule.endpoint})\n"
+                "    return jsonify(links), 200",
         "review": "TODO: вынести в контроллеры",
     },
     {
-        "code": "cart_items = request.json.get('cart_items')\nproduct_ids = [ci['id'] for ci in cart_items]\nproducts = db.session.query(Product).filter(Product.id.in_(product_ids)).all()",
+        "code": "cart_items = request.json.get('cart_items')\n"
+                "product_ids = [ci['id'] for ci in cart_items]\n"
+                "products = db.session.query(Product).filter(Product.id.in_(product_ids)).all()",
         "review": "TODO: логику перенести в слой сервисов",
     },
     {
@@ -178,93 +154,3 @@ REVIEWS_CODE = [
         "review": "TODO: использовать ORM вместо raw-запросов"
     }
 ]
-
-def findRelevantReviews(code, reviewsDb):
-    relevantReviews = []
-    for review_entry in reviewsDb:
-        if code in review_entry["code"]:  # Это упрощенная версия поиска
-            relevantReviews.append(review_entry["review"])
-    return relevantReviews
-
-def findSimilarReviewsTree(target_codes, reviewsDb):
-    similar_reviews = []
-
-    # Разделить пути в target_codes на папки
-    target_paths = [set(os.path.normpath(code).split(os.sep)) for code in target_codes]
-
-    for review_entry in reviewsDb:
-        review_path = set(os.path.normpath(review_entry["code"]).split(os.sep))
-        for target_path in target_paths:
-            # Проверить пересечение папок, а также имя файла
-            if review_path & target_path and review_entry["code"].split(os.sep)[-1] in target_path:
-                similar_reviews.append(f"Code: {review_entry['code']}, Review: {review_entry['review']}")
-                break  # Прерываем после нахождения совпадения
-
-    return "\n".join(similar_reviews)  # Возвращаем объединенную строку
-
-def ragForTree(request: list):
-    # Извлекаем релевантные отзывы из базы
-    relevantReviews = findSimilarReviewsTree(request, REVIEWS_TREE)
-
-    # Подготавливаем данные для запроса
-    url = "http://84.201.152.196:8020/v1/completions"
-    headers = {
-        "Authorization": "3rL3VN4295xYPlTNMzvt32VGwQl45e1b",
-        "Content-Type": "application/json"
-    }
-
-    # Формируем запрос с добавлением отзывов из базы
-    payload = {
-        "model": "mistral-nemo-instruct-2407",
-        "messages": [
-            {"role": "user", "content": f"Вот дерево проекта: {request}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим деревьям, которые могут быть полезными: {relevantReviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
-        ],
-        "max_tokens": 1024,
-        "temperature": 0
-    }
-
-    # Отправляем запрос в модель
-    response = requests.post(url, headers=headers, json=payload)
-    return response.json()
-
-def findSimilarReviewsCode(fileData):
-    # Ищем совпадения
-    similar_reviews = []
-    for item in REVIEWS_CODE:
-        if item["code"] in fileData:
-            similar_reviews.append(f"{item['code']} (Отзыв: {item['review']})")
-
-    return ", ".join(similar_reviews)  # Объединяем отзывы в одну строку
-
-def ragForCode(fileData: string):
-    # Извлекаем релевантные отзывы из базы
-    relevantReviews = findSimilarReviewsCode(fileData)
-    print(relevantReviews)
-
-    # Подготавливаем данные для запроса
-    url = "http://84.201.152.196:8020/v1/completions"
-    headers = {
-        "Authorization": "3rL3VN4295xYPlTNMzvt32VGwQl45e1b",
-        "Content-Type": "application/json"
-    }
-
-    # Формируем запрос с добавлением отзывов из базы
-    payload = {
-        "model": "mistral-nemo-instruct-2407",
-        "messages": [
-            {"role": "user", "content": f"Вот код файла проекта: {fileData}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим файлам, которые могут быть полезными: {relevantReviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
-        ],
-        "max_tokens": 1024,
-        "temperature": 0
-    }
-
-    # Отправляем запрос в модель
-    response = requests.post(url, headers=headers, json=payload)
-    return response.json()
-
-
-with open('./mnt/data/admins_controller.py', 'r', encoding='utf-8') as file:
-    data = file.read()  # Читаем все содержимое файла
-
-ragRequest = ragForCode(data)
-print(json.dumps(ragRequest, indent=2, ensure_ascii=False))

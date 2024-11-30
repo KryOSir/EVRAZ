@@ -1,0 +1,72 @@
+from flask import request
+from flask_restplus import Resource, Namespace, fields
+from marshmallow import ValidationError
+#TODO: сервисы необходимо прокидывать как зависимость
+from api.service import AdminsService, admin_login_required
+from api.schema import NewAdminSchema
+#TODO: регистрация эндпоинтов необходимо вынести в фабрику создания app
+admin_api = Namespace('admins', description='Endpoints to manage admin operations')
+
+#TODO: модели стоит вынести в отдельный пакет
+admin_reg = admin_api.model('Admin Registration', {
+    'name': fields.String(required=True, description='Admin\'s name'),
+    'email': fields.String(required=True, description='Admin\'s email'),
+    'password': fields.String(required=True, description='Admin\'s password')
+})
+
+#TODO: регистрация эндпоинтов необходимо вынести в фабрику создания app
+@admin_api.route('/signup')
+class Signup(Resource):
+    @admin_api.doc('Register a new Admin')
+    @admin_api.response(201, 'New Admin successfully registered')
+    @admin_api.expect(admin_reg)
+    def post(self):
+        ''' Signup a new admin '''
+        data = request.json
+        payload = admin_api.payload or data
+        schema = NewAdminSchema()
+
+        try:
+            new_payload = schema.load(payload)._asdict()
+        except ValidationError as e:
+            response = {
+                'success': False,
+                'error': e.messages
+            }
+            return response, 400
+        #TODO: сервисы необходимо прокидывать как зависимость
+        response, code = AdminsService.create(data=new_payload)
+        return response, code
+#TODO: вынести роут в константы
+@admin_api.route('/exam/oar/<string:session>/<string:semester>/<string:course>/<string:department>')
+class ExamOAR(Resource):
+    @admin_login_required
+    @admin_api.doc('Get data for exam OAR sheet', security='apiKey')
+    def get(self, session, semester, course, department, decoded_payload):
+        ''' Get all students from a department who attended exam for a course '''
+        email = decoded_payload.get('email')
+        response, code = AdminsService.get_exam_oar(
+            session=session, semester=semester, course_code=course, department_code=department, email=email)
+        return response, code
+
+@admin_api.route('/lecture/oar/<string:session>/<string:semester>/<string:course>/<string:department>')
+class LectureOAR(Resource):
+    @admin_login_required
+    @admin_api.doc('Get data for lecture OAR sheet', security='apiKey')
+    def get(self, session, semester, course, department, decoded_payload):
+        ''' Get all students from a department who attended exam for a course '''
+        email = decoded_payload.get('email')
+        response, code = AdminsService.get_lecture_oar(
+            session=session, semester=semester, course_code=course, department_code=department, email=email)
+        return response, code
+
+@admin_api.route('/mastersheet/<string:session>/<string:semester>/<string:level>/<string:department>')
+class LectureOAR(Resource):
+    @admin_login_required
+    @admin_api.doc('Get data for master sheet', security='apiKey')
+    def get(self, session, semester, level, department, decoded_payload):
+        ''' Get all students from a department and level who attended lecture, for all courses '''
+        email = decoded_payload.get('email')
+        response, code = AdminsService.get_mastersheet(
+            session=session, semester=semester, level=level, department_code=department, email=email)
+        return response, code
