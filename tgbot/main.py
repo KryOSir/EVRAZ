@@ -1,10 +1,10 @@
-import io
-import os
 from zipfile import ZipFile
-from decouple import config
 from telebot import TeleBot
 from rag import *
 import shutil
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
 # Загрузка конфигурации из .env файла
@@ -13,20 +13,60 @@ TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
 # Создание бота
 bot = TeleBot(TOKEN)
 
+pdfmetrics.registerFont(TTFont("Arial", "ArialRegular.ttf"))  # Укажите путь к файлу шрифта
+
+def split_text_to_fit(text, font_name, font_size, max_width):
+    """Разбивает текст на строки, чтобы он помещался в заданную ширину."""
+    words = text.split()
+    lines = []
+    current_line = ""
+
+    for word in words:
+        # Проверяем ширину текущей строки с добавленным словом
+        test_line = f"{current_line} {word}".strip()
+        line_width = stringWidth(test_line, font_name, font_size)
+
+        if line_width <= max_width:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = word
+
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+
 def create_pdf_report(report_path, contents):
-    """Создаёт PDF-отчёт."""
+    """Создаёт PDF-отчёт с переносом текста и учётом абзацев."""
     pdf = canvas.Canvas(report_path)
-    pdf.setFont("Helvetica", 12)
+    pdf.setFont("Arial", 12)  # Используем шрифт с поддержкой кириллицы
     x, y = 50, 800  # Начальная позиция
+    max_width = 500  # Максимальная ширина текста
     line_spacing = 15  # Межстрочный интервал
+    paragraph_spacing = 10  # Дополнительный отступ между абзацами
+
+    font_name = "Arial"
+    font_size = 12
 
     for line in contents.splitlines():
-        if y < 50:  # Перенос на следующую страницу
-            pdf.showPage()
-            pdf.setFont("Helvetica", 12)
-            y = 800
-        pdf.drawString(x, y, line)
-        y -= line_spacing
+        # Проверяем, является ли строка пустой (признак нового абзаца)
+        if not line.strip():
+            y -= paragraph_spacing  # Увеличиваем отступ для нового абзаца
+            continue
+
+        # Разбиваем строку, если она превышает ширину страницы
+        wrapped_lines = split_text_to_fit(line, font_name, font_size, max_width)
+        for wrapped_line in wrapped_lines:
+            if y < 50:  # Перенос на следующую страницу
+                pdf.showPage()
+                pdf.setFont("Arial", 12)
+                y = 800
+            pdf.drawString(x, y, wrapped_line)
+            y -= line_spacing
+
+        # Добавляем отступ после абзаца
+        y -= paragraph_spacing
 
     pdf.save()
     return report_path
