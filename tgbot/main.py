@@ -8,7 +8,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
 # Загрузка конфигурации из .env файла
-TOKEN = '7763793823:AAFZvLzyVCIG2lqZ_bLAoUWelExJK6RphgY'
+TOKEN = '8178170272:AAHbawFOdZx6kHt8DD9V4sg5gJpFsjK-_3Q'
 
 # Создание бота
 bot = TeleBot(TOKEN)
@@ -97,6 +97,34 @@ def create_pdf_report(report_path, contents):
 
     pdf.save()
     return report_path
+
+
+def read_file_safe(file_path):
+    """
+    Читает содержимое файла, пытаясь определить корректную кодировку.
+    Если ни одна из кодировок не подходит, возвращает сообщение об ошибке.
+
+    :param file_path: Путь к файлу.
+    :return: Содержимое файла или сообщение об ошибке.
+    """
+    encodings = ['utf-8', 'cp1251', 'latin-1']  # Список популярных кодировок
+    for encoding in encodings:
+        try:
+            # Пытаемся прочитать файл с текущей кодировкой
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            # Если возникла ошибка, переходим к следующей кодировке
+            continue
+        except FileNotFoundError:
+            # Обработка случая, если файл не найден
+            return f"Ошибка: Файл {file_path} не найден."
+        except Exception as e:
+            # Любая другая ошибка
+            return f"Ошибка при чтении файла {file_path}: {str(e)}"
+
+    # Если ни одна кодировка не подошла
+    return f"Ошибка декодирования файла {file_path}. Невозможно прочитать содержимое."
 
 
 def build_python_files_tree(zip_path):
@@ -194,14 +222,20 @@ def handle_document(message):
                 for file in files:
                     if file.endswith('.py'):
                         file_path = os.path.join(root, file)
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            data = f.read()
-                        # Вызов RAG
+
+                        # Чтение файла с безопасной обработкой кодировок
+                        data = read_file_safe(file_path)
+
+                        if "Ошибка декодирования" in data:
+                            # Если файл не удалось декодировать, уведомляем пользователя и пропускаем его
+                            #bot.reply_to(message, f"Файл {file} содержит недекодируемые символы. Он будет пропущен.")
+                            continue
+
+                        # Вызываем обработку RAG и добавляем результат в отчёт
                         rag_response = rag_for_code(data)
-                        # Извлечение контента с мнением
                         content = rag_response.get('choices', [{}])[0].get('message', {}).get('content', 'Нет данных')
-                        # Добавляем заголовок файла с жирным шрифтом
                         all_contents += f"Файл: {file_path}\n{content}\n\n"
+
                         processed_files += 1
                         if processed_files == percent_count_one:
                             bot.reply_to(message, "Выполнено 30%")
