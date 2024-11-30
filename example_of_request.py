@@ -1,8 +1,6 @@
 import string
 import requests
 import os
-import json
-from difflib import SequenceMatcher
 
 REVIEWS_TREE = [
     {"code": r"2020.2-Anunbis-develop\2020.2-Anunbis-develop\app\__init__.py",
@@ -179,20 +177,13 @@ REVIEWS_CODE = [
     }
 ]
 
-def findRelevantReviews(code, reviewsDb):
-    relevantReviews = []
-    for review_entry in reviewsDb:
-        if code in review_entry["code"]:  # Это упрощенная версия поиска
-            relevantReviews.append(review_entry["review"])
-    return relevantReviews
-
-def findSimilarReviewsTree(target_codes, reviewsDb):
+def find_similar_reviews_tree(target_codes):
     similar_reviews = []
 
     # Разделить пути в target_codes на папки
     target_paths = [set(os.path.normpath(code).split(os.sep)) for code in target_codes]
 
-    for review_entry in reviewsDb:
+    for review_entry in REVIEWS_TREE:
         review_path = set(os.path.normpath(review_entry["code"]).split(os.sep))
         for target_path in target_paths:
             # Проверить пересечение папок, а также имя файла
@@ -202,9 +193,9 @@ def findSimilarReviewsTree(target_codes, reviewsDb):
 
     return "\n".join(similar_reviews)  # Возвращаем объединенную строку
 
-def ragForTree(request: list):
+def rag_for_tree(request: list):
     # Извлекаем релевантные отзывы из базы
-    relevantReviews = findSimilarReviewsTree(request, REVIEWS_TREE)
+    relevant_reviews = find_similar_reviews_tree(request)
 
     # Подготавливаем данные для запроса
     url = "http://84.201.152.196:8020/v1/completions"
@@ -217,7 +208,7 @@ def ragForTree(request: list):
     payload = {
         "model": "mistral-nemo-instruct-2407",
         "messages": [
-            {"role": "user", "content": f"Вот дерево проекта: {request}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим деревьям, которые могут быть полезными: {relevantReviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
+            {"role": "user", "content": f"Вот дерево проекта: {request}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим деревьям, которые могут быть полезными: {relevant_reviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
         ],
         "max_tokens": 1024,
         "temperature": 0
@@ -227,18 +218,18 @@ def ragForTree(request: list):
     response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
-def findSimilarReviewsCode(fileData):
+def find_similar_reviews_code(file_data):
     # Ищем совпадения
     similar_reviews = []
     for item in REVIEWS_CODE:
-        if item["code"] in fileData:
+        if item["code"] in file_data:
             similar_reviews.append(f"{item['code']} (Отзыв: {item['review']})")
 
     return ", ".join(similar_reviews)  # Объединяем отзывы в одну строку
 
-def ragForCode(fileData: string):
+def rag_for_code(file_data: string):
     # Извлекаем релевантные отзывы из базы
-    relevantReviews = findSimilarReviewsCode(fileData)
+    relevant_reviews = find_similar_reviews_code(file_data)
 
     # Подготавливаем данные для запроса
     url = "http://84.201.152.196:8020/v1/completions"
@@ -251,7 +242,7 @@ def ragForCode(fileData: string):
     payload = {
         "model": "mistral-nemo-instruct-2407",
         "messages": [
-            {"role": "user", "content": f"Вот код файла проекта: {fileData}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим файлам, которые могут быть полезными: {relevantReviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
+            {"role": "user", "content": f"Вот код файла проекта: {file_data}. Сделай Code Review по нему НА РУССКОМ! Вот несколько отзывов из базы по похожим файлам, которые могут быть полезными: {relevant_reviews}. При ответе не выдумывай! Используй только те отзывы, которые тебе дали! Пиши только про то, что написано плохо! Ответ должнен содержать проблемный участок и отзыв на него!"}
         ],
         "max_tokens": 1024,
         "temperature": 0
